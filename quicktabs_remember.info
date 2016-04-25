@@ -1,0 +1,4 @@
+name = Quicktabs Remember
+description = Module to remember the last tabs used in the quicktabs.
+core = 7.x
+dependencies[] = quicktabs

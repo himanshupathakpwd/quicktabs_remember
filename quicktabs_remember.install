@@ -1,0 +1,108 @@
+<?php
+/**
+ * @file
+ * Install and schema hooks for quicktabs_remember module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function quicktabs_remember_schema() {
+  $schema['quicktabs_remember'] = array(
+    'description' => 'Table to remember user last tab location',
+    'fields' => array(
+      'id' => array(
+        'description' => 'Unique identifier for the table',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'description' => 'User id',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'quicktab_machine_name' => array(
+        'description' => 'Primary identifier for quicktabs block table',
+        'type' => 'varchar',
+        'length' => 225,
+        'not null' => TRUE,
+      ),
+      'last_tab' => array(
+        'description' => 'Last tab of the user',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('id'),
+    'unique keys' => array(
+      'combined_UK_user_quicktab' => array('uid', 'quicktab_machine_name'),
+    ),
+    'foreign keys' => array(
+      'quicktabs_remember_foreign_key' => array(
+        'table' => 'quicktabs',
+        'columns' => array('quicktab_machine_name' => 'machine_name'),
+      ),
+      'users_remember_foreign_key' => array(
+        'table' => 'users',
+        'columns' => array('uid' => 'uid'),
+      ),
+    ),
+  );
+  $schema['quicktabs_remembered'] = array(
+    'description' => 'Table to store quicktabs remember checked option',
+    'fields' => array(
+      'quicktab_machine_name' => array(
+        'description' => 'Primary identifier for quicktabs block table',
+        'type' => 'varchar',
+        'length' => 225,
+        'not null' => TRUE,
+      ),
+      'remembered' => array(
+        'description' => 'Quicktab needs to be remembered or not',
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('quicktab_machine_name'),
+    'foreign keys' => array(
+      'quicktabs_remembered_foreign_key' => array(
+        'table' => 'quicktabs',
+        'columns' => array('quicktab_machine_name' => 'machine_name'),
+      ),
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function quicktabs_remember_install() {
+  // Add foreign key constraint.
+  $query_quicktabs = 'ALTER TABLE {quicktabs_remember} ADD CONSTRAINT quicktabs_remember_foreign_key FOREIGN KEY (quicktab_machine_name) REFERENCES {quicktabs} (machine_name) ON DELETE CASCADE ON UPDATE CASCADE';
+  db_query($query_quicktabs);
+  $query_quicktabs_remembered = 'ALTER TABLE {quicktabs_remembered} ADD CONSTRAINT quicktabs_remembered_foreign_key FOREIGN KEY (quicktab_machine_name) REFERENCES {quicktabs} (machine_name) ON DELETE CASCADE ON UPDATE CASCADE';
+  db_query($query_quicktabs_remembered);
+  $query_users = 'ALTER TABLE {quicktabs_remember} ADD CONSTRAINT users_remember_foreign_key FOREIGN KEY (uid) REFERENCES {users} (uid) ON DELETE CASCADE ON UPDATE CASCADE';
+  db_query($query_users);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function quicktabs_remember_uninstall() {
+  // Remove foreign key constraint.
+  $query_quicktabs = 'ALTER TABLE {quicktabs_remember} DROP FOREIGN KEY quicktabs_remember_foreign_key';
+  db_query($query_quicktabs);
+  $query_quicktabs_remembered = 'ALTER TABLE {quicktabs_remembered} DROP FOREIGN KEY quicktabs_remembered_foreign_key';
+  db_query($query_quicktabs_remembered);
+  $query_users = 'ALTER TABLE {quicktabs_remember} DROP FOREIGN KEY users_remember_foreign_key';
+  db_query($query_users);
+}

@@ -1,0 +1,88 @@
+<?php
+
+/**
+ * @file
+ * Module file for quicktabs_remember.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function quicktabs_remember_menu() {
+  $items = array();
+  $items['quicktab_update/%/%'] = array(
+    'title' => 'Update Quicktab',
+    'page callback' => '_quicktabs_remember_update_quicktab_location',
+    'page arguments' => array(1, 2),
+    'access callback' => 'user_is_logged_in',
+    'type' => MENU_CALLBACK,
+    'file' => 'quicktabs_remember.pages.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_quicktabs_alter().
+ */
+function quicktabs_remember_quicktabs_alter(&$quicktabs) {
+  global $user;
+  $quicktabs_remembered_data = _quicktabs_remember_get_quicktabs();
+  $quicktabs_remembered = array_filter($quicktabs_remembered_data);
+  $quicktabs_to_remember = array_keys($quicktabs_remembered);
+  if (in_array($quicktabs->machine_name, $quicktabs_to_remember)) {
+    drupal_add_js(drupal_get_path('module', 'quicktabs_remember') . '/quicktabs_remember.js', array(
+      'scope' => 'footer',
+    ));
+    $last_tab = db_select('quicktabs_remember', 'qr')
+      ->fields('qr', array('last_tab'))
+      ->condition('qr.uid', $user->uid)
+      ->condition('qr.quicktab_machine_name', $quicktabs->machine_name)
+      ->execute()->fetchCol();
+    $quicktabs->default_tab = isset($last_tab) && count($last_tab) ? $last_tab[0] : $quicktabs->default_tab;
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function quicktabs_remember_form_quicktabs_form_alter(&$form, &$form_state, $form_id) {
+  $form['remember_quicktab'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Remember user's last tab"),
+    '#description' => t('Check this to remember last choice of user for the quicktab'),
+    '#weight' => $form['renderer']['#weight'] + 1,
+    '#states' => array('visible' => array(':input[name="renderer"]' => array('value' => 'quicktabs'))),
+  );
+  if (isset($form['machine_name']['#value']) && !empty($form['machine_name']['#value'])) {
+    $quicktabs_remembered_data = _quicktabs_remember_get_quicktabs();
+    $form['remember_quicktab']['#default_value'] = isset($quicktabs_remembered_data[$form['machine_name']['#value']]) ? $quicktabs_remembered_data[$form['machine_name']['#value']] : 0;
+  }
+  $form['#submit'][] = '_quicktabs_remember_quicktabs_form_submit';
+}
+
+/**
+ * Custom Form submit handler for quicktabs_form_alter.
+ */
+function _quicktabs_remember_quicktabs_form_submit($form, &$form_state) {
+  if (isset($form_state['values']['remember_quicktab']) && is_numeric($form_state['values']['remember_quicktab'])) {
+    $query = db_merge('quicktabs_remembered')
+      ->key(array(
+        'quicktab_machine_name' => $form_state['values']['machine_name'],
+      ))
+      ->fields(array(
+        'remembered' => $form_state['values']['remember_quicktab'],
+      ))->execute();
+  }
+}
+
+/**
+ * Function to get all data from quicktabs_remembered table.
+ *
+ * @return array The data will be the result set array in the form of
+ *   machine_name => remembered.
+ */
+function _quicktabs_remember_get_quicktabs() {
+  $quicktabs = db_select('quicktabs_remembered', 'qr')
+    ->fields('qr')->execute()->fetchAllKeyed(0, 1);
+  return $quicktabs;
+}
